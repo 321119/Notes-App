@@ -12,4 +12,24 @@ public class NoteService {
         notes.put(note.getId(), note);
         return note;
     }
+
+    public void editNote(int id, String newContent) {
+        Note note = notes.get(id);
+        if (note != null) {
+            note.setContent(newContent);
+        }
+    }
+
+    public Note getNoteById(int id) {
+        return notes.get(id);
+    }
+
+    public boolean deleteNoteById(int id) {
+        return notes.remove(id) != null;
+    }
+
+    public Iterable<Note> getAllNotes() {
+        return notes.values();
+    }
 }
+
