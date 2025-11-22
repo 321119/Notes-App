@@ -47,4 +47,20 @@ public void testSaveNotesToFile() {
     // Clean up (avoid clutter)
     file.delete();
 }
+
+@Test
+public void testEditNote() {
+    NoteService service = new NoteService();
+
+    // Arrange – create a new note
+    Note note = service.createNote("Original content");
+
+    // Act – edit the note
+    assertTrue(service.editNote(note.getId(), "Updated content"));
+
+
+    // Assert – verify the content changed
+    Note updated = service.getNoteById(note.getId());
+    assertEquals("Updated content", updated.getContent());
+}
 }

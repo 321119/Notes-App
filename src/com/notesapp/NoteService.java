@@ -16,12 +16,15 @@ public class NoteService {
         return note;
     }
 
-    public void editNote(int id, String newContent) {
+    public boolean editNote(int id, String newContent) {
         Note note = notes.get(id);
         if (note != null) {
             note.setContent(newContent);
+            return true;
         }
+        return false;
     }
+
 
     public Note getNoteById(int id) {
         return notes.get(id);
