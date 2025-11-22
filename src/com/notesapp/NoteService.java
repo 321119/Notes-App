@@ -1,6 +1,9 @@
 package com.notesapp;
 
 import java.util.HashMap;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 public class NoteService {
 
@@ -31,5 +34,14 @@ public class NoteService {
     public Iterable<Note> getAllNotes() {
         return notes.values();
     }
-}
 
+    public void saveNotesToFile(String filepath) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filepath))) {
+        	for (Note note : getAllNotes()) {
+        	    writer.println(note.getContent());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
