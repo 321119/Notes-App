@@ -1,3 +1,6 @@
+// Delete feature implemented (PR marker)
+
+
 package com.notesapp;
 
 import java.util.HashMap;
