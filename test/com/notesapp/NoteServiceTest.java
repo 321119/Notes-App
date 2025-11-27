@@ -47,4 +47,14 @@ public void testSaveNotesToFile() {
     // Clean up (avoid clutter)
     file.delete();
 }
+
+@Test
+public void testCreateNoteWithSpecialCharacters() {
+    NoteService service = new NoteService();
+
+    String content = "Hello 😊🔥🎉 — café — 中文 — عربى — symbols: !@#$%^&*()";
+    Note note = service.createNote(content);
+
+    assertEquals(content, note.getContent());
+}
 }

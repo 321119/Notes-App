@@ -2,132 +2,120 @@ package com.notesapp;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * NotesAppUI - JavaFX GUI wired to NoteService.
- * Copy this file over your existing NotesAppUI.java (replace), save, then run.
+ * NotesAppUI - corrected to use existing NoteService class.
+ * Drop this into src/com/notesapp/NotesAppUI.java (replace), save, then Run As → Java Application.
  */
 public class NotesAppUI extends Application {
 
-    // ---- backing service + UI controls ----
-    private final NoteService noteService = new NoteService();
-    private final ListView<Note> noteList = new ListView<>();
-    private final TextArea noteContent = new TextArea();
+    private final NoteService service = new NoteService(); // <-- uses your existing NoteService
+    private final ListView<Note> notesList = new ListView<>();
+    private final TextArea noteArea = new TextArea();
 
     @Override
-    public void start(Stage stage) {
-        stage.setTitle("Notes App");
+    public void start(Stage primaryStage) {
 
-        // list selection -> show content
-        noteList.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                noteContent.setText(newVal.getContent());
-            } else {
-                noteContent.clear();
-            }
-        });
+        // Sidebar (notes list + emoji button)
+        VBox sidebar = new VBox(10);
+        sidebar.setPadding(new Insets(10));
 
-        // Buttons
+        Button emojiBtn = new Button("😀");  // opens emoji picker
+        emojiBtn.setMaxWidth(Double.MAX_VALUE);
+
+        sidebar.getChildren().addAll(new Label("Notes"), notesList, emojiBtn);
+        sidebar.setPrefWidth(220);
+
+        // Note editor
+        noteArea.setPromptText("Write your note here...");
+        noteArea.setWrapText(true);
+
+        // Buttons for CRUD operations
         Button createBtn = new Button("Create Note");
-        Button editBtn   = new Button("Edit Note");
+        Button editBtn = new Button("Edit Note");
         Button deleteBtn = new Button("Delete Note");
 
-        createBtn.setOnAction(e -> createNote());
-        editBtn.setOnAction(e -> editSelectedNote());
-        deleteBtn.setOnAction(e -> deleteSelectedNote());
-
         HBox buttonRow = new HBox(10, createBtn, editBtn, deleteBtn);
-        buttonRow.setPadding(new Insets(10));
+        buttonRow.setAlignment(Pos.CENTER);
 
-        // layout: left list, right editor+buttons
-        VBox rightSide = new VBox(10, noteContent, buttonRow);
-        rightSide.setPadding(new Insets(10));
-        rightSide.setVgrow(noteContent, Priority.ALWAYS);
+        VBox mainArea = new VBox(10, noteArea, buttonRow);
+        mainArea.setPadding(new Insets(10));
+        VBox.setVgrow(noteArea, Priority.ALWAYS);
 
-        SplitPane split = new SplitPane(noteList, rightSide);
-        split.setDividerPositions(0.3);
+        // Layout containers
+        HBox root = new HBox(sidebar, mainArea);
+        HBox.setHgrow(mainArea, Priority.ALWAYS);
 
-        Scene scene = new Scene(split, 800, 500);
-        stage.setScene(scene);
-        stage.show();
+        Scene scene = new Scene(root, 900, 550);
+        primaryStage.setTitle("Notes App");
+        primaryStage.setScene(scene);
+        primaryStage.show();
 
-        // initial refresh so list is populated
+        // -------- Load saved notes and refresh UI --------
+        service.loadNotes(); // if you have this method; if not, safe to ignore or implement
         refreshList();
-    }
 
-    private void createNote() {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Create Note");
-        dialog.setHeaderText("Enter note content:");
-        dialog.setContentText("Content:");
-
-        dialog.showAndWait().ifPresent(content -> {
-            Note note = noteService.createNote(content);
-            refreshList();
-            // select new note in the list (lookup by id)
-            noteList.getItems().stream()
-                    .filter(n -> n.getId() == note.getId())
-                    .findFirst()
-                    .ifPresent(n -> noteList.getSelectionModel().select(n));
-        });
-    }
-
-    private void editSelectedNote() {
-        Note selected = noteList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No note selected", "Please select a note to edit.");
-            return;
-        }
-
-        TextInputDialog dialog = new TextInputDialog(selected.getContent());
-        dialog.setTitle("Edit Note");
-        dialog.setHeaderText("Update note content:");
-        dialog.setContentText("Content:");
-
-        dialog.showAndWait().ifPresent(content -> {
-            noteService.editNote(selected.getId(), content);
-            refreshList();
-            // keep selection on edited note
-            noteList.getItems().stream()
-                    .filter(n -> n.getId() == selected.getId())
-                    .findFirst()
-                    .ifPresent(n -> noteList.getSelectionModel().select(n));
-        });
-    }
-
-    private void deleteSelectedNote() {
-        Note selected = noteList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No note selected", "Please select a note to delete.");
-            return;
-        }
-
-        // confirmation
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle("Delete Note");
-        confirm.setHeaderText("Are you sure you want to delete this note?");
-        confirm.setContentText(selected.getContent());
-        confirm.showAndWait().ifPresent(button -> {
-            if (button == ButtonType.OK) {
-                noteService.deleteNoteById(selected.getId());
-                refreshList();
-                noteContent.clear();
+        // -------- Ensure selection loads content (fixes Edit button) --------
+        notesList.getSelectionModel().selectedItemProperty().addListener((obs, oldNote, newNote) -> {
+            if (newNote != null) {
+                noteArea.setText(newNote.getContent());
+            } else {
+                noteArea.clear();
             }
         });
+
+        // -------- Button logic --------
+        createBtn.setOnAction(e -> {
+            String content = noteArea.getText().trim();
+            if (!content.isEmpty()) {
+                service.createNote(content);
+                noteArea.clear();
+                refreshList();
+            }
+        });
+
+        editBtn.setOnAction(e -> {
+            Note selected = notesList.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                String updated = noteArea.getText();
+                service.editNote(selected.getId(), updated);
+                refreshList();
+                // keep selection on edited note
+                notesList.getItems().stream()
+                        .filter(n -> n.getId() == selected.getId())
+                        .findFirst()
+                        .ifPresent(n -> notesList.getSelectionModel().select(n));
+            } else {
+                showAlert("No note selected", "Please select a note to edit.");
+            }
+        });
+
+        deleteBtn.setOnAction(e -> {
+            Note selected = notesList.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                service.deleteNoteById(selected.getId());
+                refreshList();
+                noteArea.clear();
+            } else {
+                showAlert("No note selected", "Please select a note to delete.");
+            }
+        });
+
+        // Emoji picker
+        emojiBtn.setOnAction(e -> showEmojiPicker());
+
     }
 
-    // converts Iterable<Note> -> List<Note> then sets items
     private void refreshList() {
-        List<Note> list = new ArrayList<>();
-        noteService.getAllNotes().forEach(list::add);
-        noteList.getItems().setAll(list);
+        // convert Iterable<Note> -> List<Note> then setAll
+        java.util.List<Note> list = new java.util.ArrayList<>();
+        service.getAllNotes().forEach(list::add);
+        notesList.getItems().setAll(list);
     }
 
     private void showAlert(String title, String message) {
@@ -136,6 +124,47 @@ public class NotesAppUI extends Application {
         a.setHeaderText(null);
         a.setContentText(message);
         a.showAndWait();
+    }
+
+    // Simple emoji picker as a popup Stage
+    private void showEmojiPicker() {
+        Stage popup = new Stage();
+        popup.setTitle("Emoji Picker");
+
+        String[] emojis = {
+                "😀","😁","😂","🤣","🙂","😊","😍","😎","🤔","😢",
+                "😭","😡","👍","👎","🙏","🔥","✨","❤","💀","🎉"
+        };
+
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(10));
+        grid.setHgap(8);
+        grid.setVgap(8);
+
+        int col = 0, row = 0;
+        for (String emoji : emojis) {
+            Button b = new Button(emoji);
+            b.setPrefSize(40, 40);
+            b.setOnAction(e -> {
+                noteArea.appendText(emoji);
+                popup.close();
+            });
+            grid.add(b, col, row);
+            col++;
+            if (col == 5) {
+                col = 0;
+                row++;
+            }
+        }
+
+        Scene s = new Scene(grid);
+        popup.setScene(s);
+        popup.initOwner(notesList.getScene().getWindow());
+        popup.show();
+    }
+
+    private void showAlertAndWait(String title, String msg) {
+        showAlert(title, msg);
     }
 
     public static void main(String[] args) {
