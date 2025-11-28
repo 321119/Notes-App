@@ -11,24 +11,25 @@ import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
-import java.io.File;
+import org.fxmisc.richtext.StyleClassedTextArea;
 
-/**
- * NotesAppUI with image upload + image preview.
- */
+import java.io.File;
+import java.util.*;
+
 public class NotesAppUI extends Application {
 
     private final NoteService service = new NoteService();
     private final ListView<Note> notesList = new ListView<>();
-    private final TextArea noteArea = new TextArea();
+    private final StyleClassedTextArea editor = new StyleClassedTextArea();
 
-    // NEW: Image display area
+    // 🔥 Image support (easy mode)
     private final ImageView imagePreview = new ImageView();
+    private File lastImageFile = null;
 
     @Override
     public void start(Stage primaryStage) {
 
-        // sidebar
+        // ==== Sidebar ====
         VBox sidebar = new VBox(10);
         sidebar.setPadding(new Insets(10));
 
@@ -38,163 +39,162 @@ public class NotesAppUI extends Application {
         sidebar.getChildren().addAll(new Label("Notes"), notesList, emojiBtn);
         sidebar.setPrefWidth(220);
 
-        // editor + image viewer
-        noteArea.setPromptText("Write your note here...");
-        noteArea.setWrapText(true);
+        // ==== Rich Text Editor ====
+        editor.setWrapText(true);
+        editor.setPadding(new Insets(10));
 
-        Button createBtn = new Button("Create");
-        Button editBtn = new Button("Edit");
-        Button deleteBtn = new Button("Delete");
-        Button uploadImageBtn = new Button("Upload Image");
-
-        HBox buttonRow = new HBox(10, createBtn, editBtn, deleteBtn, uploadImageBtn);
-        buttonRow.setAlignment(Pos.CENTER);
-
-        // IMAGE PREVIEW SETTINGS
+        // ==== Image Preview ====
         imagePreview.setPreserveRatio(true);
         imagePreview.setFitWidth(350);
-        imagePreview.setFitHeight(250);
 
-        VBox mainArea = new VBox(10, noteArea, imagePreview, buttonRow);
-        mainArea.setPadding(new Insets(10));
-        VBox.setVgrow(noteArea, Priority.ALWAYS);
+        VBox imageBox = new VBox(5, new Label("Attached Image:"), imagePreview);
+        imageBox.setPadding(new Insets(10));
 
-        HBox root = new HBox(sidebar, mainArea);
-        HBox.setHgrow(mainArea, Priority.ALWAYS);
+        // ==== Formatting Toolbar ====
+        Button boldBtn = new Button("B");
+        boldBtn.setStyle("-fx-font-weight: bold;");
 
-        Scene scene = new Scene(root, 1000, 600);
+        Button italicBtn = new Button("I");
+        italicBtn.setStyle("-fx-font-style: italic;");
+
+        Button underlineBtn = new Button("U");
+        underlineBtn.setStyle("-fx-underline: true;");
+
+        Button uploadImgBtn = new Button("Upload Image");
+
+        HBox toolbar = new HBox(10, boldBtn, italicBtn, underlineBtn, uploadImgBtn);
+        toolbar.setAlignment(Pos.CENTER_LEFT);
+
+        // ==== CRUD buttons ====
+        Button createBtn = new Button("Create Note");
+        Button editBtn = new Button("Save Edits");
+        Button deleteBtn = new Button("Delete Note");
+
+        HBox crud = new HBox(10, createBtn, editBtn, deleteBtn);
+        crud.setAlignment(Pos.CENTER);
+
+        VBox main = new VBox(10, toolbar, editor, imageBox, crud);
+        main.setPadding(new Insets(10));
+        VBox.setVgrow(editor, Priority.ALWAYS);
+
+        // ==== Layout ====
+        HBox root = new HBox(sidebar, main);
+        HBox.setHgrow(main, Priority.ALWAYS);
+
+        Scene scene = new Scene(root, 1000, 700);
+        scene.getStylesheets().add(getClass().getResource("notes.css").toExternalForm());
         primaryStage.setTitle("Notes App");
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Load notes
+        // ==== Load existing notes ====
         service.loadNotes();
         refreshList();
 
-        // Selecting a note loads content AND image
-        notesList.getSelectionModel().selectedItemProperty().addListener((obs, oldNote, newNote) -> {
-            if (newNote != null) {
-                noteArea.setText(newNote.getContent());
-                loadImagePreview(newNote.getImagePath());
-            } else {
-                noteArea.clear();
-                imagePreview.setImage(null);
+        // ==== When selecting a note ====
+        notesList.getSelectionModel().selectedItemProperty().addListener((obs, oldN, newN) -> {
+            if (newN != null) {
+                editor.replaceText(newN.getContent());
+
+                // Load image if saved
+                if (newN.getImagePath() != null && !newN.getImagePath().isEmpty()) {
+                    File f = new File(newN.getImagePath());
+                    if (f.exists()) {
+                        Image img = new Image(f.toURI().toString());
+                        imagePreview.setImage(img);
+                        lastImageFile = f;
+                    } else {
+                        imagePreview.setImage(null);
+                        lastImageFile = null;
+                    }
+                } else {
+                    imagePreview.setImage(null);
+                    lastImageFile = null;
+                }
             }
         });
 
-        // CREATE
+        // ==== Formatting ====
+        boldBtn.setOnAction(e -> toggleStyle("bold"));
+        italicBtn.setOnAction(e -> toggleStyle("italic"));
+        underlineBtn.setOnAction(e -> toggleStyle("underline"));
+
+        // ==== Upload Image Button ====
+        uploadImgBtn.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Image");
+            chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+            );
+            File file = chooser.showOpenDialog(primaryStage);
+
+            if (file != null) {
+                lastImageFile = file;
+                Image img = new Image(file.toURI().toString());
+                imagePreview.setImage(img);
+            }
+        });
+
+        // ==== Create Note ====
         createBtn.setOnAction(e -> {
-            String content = noteArea.getText().trim();
-            if (!content.isEmpty()) {
-                service.createNote(content);
-                noteArea.clear();
-                imagePreview.setImage(null);
-                refreshList();
-            }
+            String text = editor.getText();
+            String imgPath = (lastImageFile != null) ? lastImageFile.getAbsolutePath() : "";
+
+            service.createNote(text, imgPath);
+            editor.clear();
+            imagePreview.setImage(null);
+            lastImageFile = null;
+
+            refreshList();
         });
 
-        // EDIT
+        // ==== Edit Note ====
         editBtn.setOnAction(e -> {
             Note selected = notesList.getSelectionModel().getSelectedItem();
             if (selected != null) {
-                service.editNote(selected.getId(), noteArea.getText());
+                String imgPath = (lastImageFile != null) ? lastImageFile.getAbsolutePath() : "";
+                service.editNote(selected.getId(), editor.getText(), imgPath);
                 refreshList();
-                notesList.getSelectionModel().select(selected);
-            } else {
-                showAlert("No note selected", "Please select a note to edit.");
             }
         });
 
-        // DELETE
+        // ==== Delete Note ====
         deleteBtn.setOnAction(e -> {
             Note selected = notesList.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 service.deleteNoteById(selected.getId());
-                noteArea.clear();
+                editor.clear();
                 imagePreview.setImage(null);
+                lastImageFile = null;
                 refreshList();
             }
         });
 
-        // IMAGE UPLOAD
-        uploadImageBtn.setOnAction(e -> uploadImage());
-
-        // Emoji picker
         emojiBtn.setOnAction(e -> showEmojiPicker());
-
-        // CAMERA ICON for notes with images
-        notesList.setCellFactory(list -> new ListCell<Note>() {
-            @Override
-            protected void updateItem(Note note, boolean empty) {
-                super.updateItem(note, empty);
-                if (empty || note == null) {
-                    setText(null);
-                } else {
-                    String icon = (note.getImagePath() != null && !note.getImagePath().isEmpty())
-                            ? "📷 "
-                            : "";
-                    setText(icon + note.getContent());
-                }
-            }
-        });
     }
 
-    // -----------------------------
-    // IMAGE PREVIEW LOGIC
-    // -----------------------------
-    private void loadImagePreview(String path) {
-        if (path == null || path.isEmpty()) {
-            imagePreview.setImage(null);
-            return;
-        }
-        File f = new File(path);
-        if (!f.exists()) {
-            imagePreview.setImage(null);
-            return;
-        }
-        imagePreview.setImage(new Image(f.toURI().toString()));
-    }
+    // === Text Formatting ===
+    private void toggleStyle(String style) {
+        int start = editor.getSelection().getStart();
+        int end = editor.getSelection().getEnd();
 
-    // -----------------------------
-    // UPLOAD IMAGE
-    // -----------------------------
-    private void uploadImage() {
-        Note selected = notesList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            showAlert("No note selected", "Please select a note first.");
-            return;
-        }
+        if (start == end) return;
 
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Choose an Image");
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.gif")
-        );
-
-        File file = chooser.showOpenDialog(null);
-        if (file != null) {
-            selected.setImagePath(file.getAbsolutePath());
-            service.saveNotes();
-            loadImagePreview(file.getAbsolutePath());
-            refreshList();
+        if (editor.getStyleAtPosition(start).contains(style)) {
+            editor.setStyle(start, end, Collections.emptyList());
+        } else {
+            editor.setStyle(start, end, List.of(style));
         }
     }
 
+    // === Refresh sidebar list ===
     private void refreshList() {
-        java.util.List<Note> list = new java.util.ArrayList<>();
+        List<Note> list = new ArrayList<>();
         service.getAllNotes().forEach(list::add);
         notesList.getItems().setAll(list);
     }
 
-    private void showAlert(String title, String msg) {
-        Alert a = new Alert(Alert.AlertType.INFORMATION);
-        a.setTitle(title);
-        a.setHeaderText(null);
-        a.setContentText(msg);
-        a.showAndWait();
-    }
-
-    // Emoji picker popup
+    // === Emoji Picker ===
     private void showEmojiPicker() {
         Stage popup = new Stage();
         popup.setTitle("Emoji Picker");
@@ -214,18 +214,15 @@ public class NotesAppUI extends Application {
             Button b = new Button(emoji);
             b.setPrefSize(40, 40);
             b.setOnAction(e -> {
-                noteArea.appendText(emoji);
+                editor.appendText(emoji);
                 popup.close();
             });
             grid.add(b, col, row);
-            col++;
-            if (col == 5) {
-                col = 0;
-                row++;
-            }
+            if (++col == 5) { col = 0; row++; }
         }
 
-        popup.setScene(new Scene(grid));
+        Scene s = new Scene(grid);
+        popup.setScene(s);
         popup.show();
     }
 
