@@ -17,18 +17,51 @@ public class NoteService {
     private int idCounter = 1;
     private HashMap<Integer, Note> notes = new HashMap<>();
 
-    // CREATE NOTE
+    // ---------------------------------------------------------
+    // CREATE NOTE (original)
+    // ---------------------------------------------------------
     public Note createNote(String content) {
         Note note = new Note(idCounter++, content);
         notes.put(note.getId(), note);
         return note;
     }
 
-    // EDIT NOTE (final version)
+    // ---------------------------------------------------------
+    // CREATE NOTE WITH IMAGE
+    // ---------------------------------------------------------
+    public Note createNote(String content, String imagePath) {
+        Note note = new Note(idCounter++, content);
+        if (imagePath != null && !imagePath.isEmpty()) {
+            note.setImagePath(imagePath);
+        }
+        notes.put(note.getId(), note);
+        return note;
+    }
+
+    // ---------------------------------------------------------
+    // EDIT NOTE (original)
+    // ---------------------------------------------------------
     public boolean editNote(int id, String newContent) {
         Note note = notes.get(id);
         if (note != null) {
             note.setContent(newContent);
+            return true;
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------
+    // EDIT NOTE WITH IMAGE SUPPORT
+    // ---------------------------------------------------------
+    public boolean editNote(int id, String newContent, String imagePath) {
+        Note note = notes.get(id);
+        if (note != null) {
+            note.setContent(newContent);
+
+            // Allow clearing imagePath if empty string
+            if (imagePath != null) {
+                note.setImagePath(imagePath.isEmpty() ? null : imagePath);
+            }
             return true;
         }
         return false;
@@ -67,7 +100,7 @@ public class NoteService {
     // DEFAULT FILENAME
     private static final String DATA_FILENAME = "notes_data.txt";
 
-    // SAVE TO DEFAULT FILE
+    // SAVE TO DEFAULT FILE (with image path)
     public void saveNotes() {
         try (BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter(new FileOutputStream(DATA_FILENAME), StandardCharsets.UTF_8))) {
@@ -86,7 +119,6 @@ public class NoteService {
         }
     }
 
-
     // LOAD FROM DEFAULT FILE
     public void loadNotes() {
         File file = new File(DATA_FILENAME);
@@ -103,7 +135,6 @@ public class NoteService {
 
                 String[] parts = line.split("\t", 3);
 
-                // Ensure at least id + content exist
                 if (parts.length < 2) continue;
 
                 int id = Integer.parseInt(parts[0]);
@@ -126,5 +157,5 @@ public class NoteService {
             e.printStackTrace();
         }
     }
-
 }
+
