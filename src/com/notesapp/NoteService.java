@@ -73,8 +73,11 @@ public class NoteService {
                 new OutputStreamWriter(new FileOutputStream(DATA_FILENAME), StandardCharsets.UTF_8))) {
 
             for (Note note : notes.values()) {
+
                 String safeContent = note.getContent().replace("\n", "\\n");
-                writer.write(note.getId() + "\t" + safeContent);
+                String imagePath = (note.getImagePath() != null) ? note.getImagePath() : "";
+
+                writer.write(note.getId() + "\t" + safeContent + "\t" + imagePath);
                 writer.newLine();
             }
 
@@ -82,6 +85,7 @@ public class NoteService {
             e.printStackTrace();
         }
     }
+
 
     // LOAD FROM DEFAULT FILE
     public void loadNotes() {
@@ -96,15 +100,23 @@ public class NoteService {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                if (!line.contains("\t")) continue;
 
-                String[] parts = line.split("\t", 2);
+                String[] parts = line.split("\t", 3);
+
+                // Ensure at least id + content exist
+                if (parts.length < 2) continue;
+
                 int id = Integer.parseInt(parts[0]);
-                String restored = parts[1].replace("\\n", "\n");
+                String restoredContent = parts[1].replace("\\n", "\n");
+                String imagePath = (parts.length >= 3) ? parts[2] : "";
 
-                Note note = new Note(id, restored);
+                Note note = new Note(id, restoredContent);
+
+                if (!imagePath.isEmpty()) {
+                    note.setImagePath(imagePath);
+                }
+
                 notes.put(id, note);
-
                 if (id > maxId) maxId = id;
             }
 
@@ -114,4 +126,5 @@ public class NoteService {
             e.printStackTrace();
         }
     }
+
 }
