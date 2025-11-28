@@ -14,53 +14,55 @@ public class NoteServiceTest {
         NoteService service = new NoteService();
         Note note = service.createNote("Hello World");
 
-        assertNotNull(note);                      // note should not be null
-        assertEquals("Hello World", note.getContent()); // content must match
-        assertTrue(note.getId() > 0);             // ID must be positive
+        assertNotNull(note);
+        assertEquals("Hello World", note.getContent());
+        assertTrue(note.getId() > 0);
     }
 
-@Test
-public void testSaveNotesToFile() {
-    NoteService service = new NoteService();
+    @Test
+    public void testSaveNotesToFile() {
+        NoteService service = new NoteService();
 
-    // Arrange – create some notes
-    service.createNote("First note");
-    service.createNote("Second note");
+        service.createNote("First note");
+        service.createNote("Second note");
 
-    // Act – save them to a test file
-    String filepath = "test_notes.txt";
-    service.saveNotesToFile(filepath);
+        String filepath = "test_notes.txt";
+        service.saveNotesToFile(filepath);
 
-    // Assert – the file should exist
-    File file = new File(filepath);
-    assertTrue(file.exists(), "File should be created");
+        File file = new File(filepath);
+        assertTrue(file.exists(), "File should be created");
 
-    // Optional: read content back out to verify
-    try {
-        String content = Files.readString(file.toPath());
-        assertTrue(content.contains("First note"));
-        assertTrue(content.contains("Second note"));
-    } catch (IOException e) {
-        fail("Could not read saved file");
+        try {
+            String content = Files.readString(file.toPath());
+            assertTrue(content.contains("First note"));
+            assertTrue(content.contains("Second note"));
+        } catch (IOException e) {
+            fail("Could not read saved file");
+        }
+
+        file.delete();
     }
 
-    // Clean up (avoid clutter)
-    file.delete();
+    @Test
+    public void testCreateNoteWithSpecialCharacters() {
+        NoteService service = new NoteService();
+
+        String content = "Hello 😊🔥🎉 — café — 中文 — عربى — symbols: !@#$%^&*()";
+        Note note = service.createNote(content);
+
+        assertEquals(content, note.getContent());
+    }
+
+    @Test
+    public void testEditNote() {
+        NoteService service = new NoteService();
+
+        Note note = service.createNote("Original content");
+
+        assertTrue(service.editNote(note.getId(), "Updated content"));
+
+        Note updated = service.getNoteById(note.getId());
+        assertEquals("Updated content", updated.getContent());
+    }
 }
 
-@Test
-public void testEditNote() {
-    NoteService service = new NoteService();
-
-    // Arrange – create a new note
-    Note note = service.createNote("Original content");
-
-    // Act – edit the note
-    assertTrue(service.editNote(note.getId(), "Updated content"));
-
-
-    // Assert – verify the content changed
-    Note updated = service.getNoteById(note.getId());
-    assertEquals("Updated content", updated.getContent());
-}
-}
