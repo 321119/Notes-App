@@ -24,12 +24,14 @@ public class NoteService {
         return note;
     }
 
-    // EDIT NOTE
-    public void editNote(int id, String newContent) {
+    // EDIT NOTE (final version)
+    public boolean editNote(int id, String newContent) {
         Note note = notes.get(id);
         if (note != null) {
             note.setContent(newContent);
+            return true;
         }
+        return false;
     }
 
     // GET NOTE
@@ -47,9 +49,7 @@ public class NoteService {
         return notes.values();
     }
 
-    // ----------------------------------------------
-    //  SAVE TO CUSTOM FILE (Used by unit test)
-    // ----------------------------------------------
+    // SAVE NOTES — used by tests
     public void saveNotesToFile(String filepath) {
         try (PrintWriter writer = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(filepath), StandardCharsets.UTF_8))) {
@@ -64,9 +64,7 @@ public class NoteService {
         }
     }
 
-    // ----------------------------------------------
-    // DEFAULT FILE SYSTEM
-    // ----------------------------------------------
+    // DEFAULT FILENAME
     private static final String DATA_FILENAME = "notes_data.txt";
 
     // SAVE TO DEFAULT FILE
